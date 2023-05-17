@@ -20,6 +20,9 @@ class  Function:
 class  Tensor:
 
     def __init__(self, data , requires_grad = False):
+    
+        self.grad ,self._ctx = None , None
+        self.requires_grad  = requires_grad
         
         if isinstance(data, (list , tuple , int , float)):
             data = np.array(data , dtype = np.float32)
@@ -28,11 +31,8 @@ class  Tensor:
 
         if not isinstance(data , np.ndarray):
             raise RuntimeError (f"Can't create a tensor from {data}")
+        
         self.data = data 
-        self.grad = None
-        self.requires_grad  = requires_grad
-
-        self._ctx = None 
 
     @property
     def dtype(self): return self.data.dtype
@@ -50,25 +50,25 @@ class  Tensor:
                         topo(x)
                 nodes.append(node)
             return nodes 
-        return topo(self)
+        return reversed(topo(self))
 
     def backward(self):
         # must modify for unary functions
         if self._ctx is None: return 
         assert self.shape == (1,) , f"Tensor must have a shape of (1,) instead of {self.shape}"
-        self.grad = np.ones(self.shape, dtype = np.float32)
-
-        for i in reversed(self.toposort()):
-            if i._ctx != None:
-                grads = i._ctx.backward(i._ctx , i.grad)
+        self.grad = np.ones(self.shape, dtype = np.float32) # this  should be a tensors
+ 
+        for i in self.toposort():
+            if i._ctx:
+                grads = i._ctx.backward(i._ctx , i.grad) # example: if  _ctx is mul , it  will call i.mul.backward(set by register)
                 for ts, gr in zip(i._ctx.parents, grads):
                     assert ts.shape == gr.shape ,f"shapes of tensor {ts.shape} and grad {gr.shape} must be the same"
-                    ts.grad = gr
+                    ts.grad = Tensor(gr)
+            i._ctx = None
 
-def register(name , fxn):
-    partial = partialmethod(fxn.apply , fxn) #
-    setattr(Tensor , name , partial)
-# partialmethod(fnx.apply) # hoces  da  aplajujes  na odredjenu funkciju(add , mul , itd)
+def register(name , func):
+    partial = partialmethod(func.apply , func) 
+    setattr(Tensor , name , partial) # setts new  attr to a Tensor
     
 class mul(Function):
     @staticmethod 
@@ -90,3 +90,15 @@ class add(Function):
     def backward(ctx, out_grad):
         return out_grad , out_grad
 register("add",add)
+
+class sub(Function):
+    @staticmethod
+    def forward(ctx,x,y):
+        ctx.save_for_backward(x,y)
+        return x-y
+    @staticmethod
+    def backward(ctx , out_grad):
+        return out_grad , -out_grad
+register("sub",sub)
+
+# TODO: add other math ops. (log ,exp) and  basic  activations (relu , sigmoid ...) 

@@ -1,19 +1,3 @@
-from  tinygrad.tensor import  Tensor
-
-x = Tensor([[1,2,3]]  ,requires_grad = True)
-y  = Tensor([[5,5,5] ],requires_grad = True)
-z = x+ y
-y = z.sum()
-#print(y.deepwalk())
-
-t1 = Tensor([4] ,requires_grad = True)
-t2 = Tensor([2], requires_grad = True)
-
-t3 = t1.mul(t2)
-t3.backward()
-#print(t1.grad.numpy() , t2.grad.numpy())
-
-
 graph = {
     "1": [],
     "3": ["1"],
@@ -44,12 +28,16 @@ def topo_sort(visited , arr):
         topo(node)
     return arr
 
-#rom =  [x for x  in reversed(topo_sort(visited  = set(),  arr  = []))]
-#print(rom)
+from tinygrad.tensor import  Tensor as ts
 
-        
+t1  = ts([1.] , requires_grad= True)
+t2 = ts([5.] , requires_grad = True)
+t4 = ts([4.])
 
+t3 = t1 + t2
+t5 = t3 * t4 
+t5.backward()
 
-
+print(t1.grad.numpy() , t2.grad.numpy(), t3.grad.numpy())
 
 
