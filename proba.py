@@ -6,62 +6,50 @@ z = x+ y
 y = z.sum()
 #print(y.deepwalk())
 
+t1 = Tensor([4] ,requires_grad = True)
+t2 = Tensor([2], requires_grad = True)
 
-t1 = Tensor([1] , requires_grad = True)
-t2 = Tensor([2] , requires_grad = True)
+t3 = t1.mul(t2)
+t3.backward()
+#print(t1.grad.numpy() , t2.grad.numpy())
 
-t3 = t1 + t2
 
-#print(type(z._ctx))
-#print(t3._ctx , "romcina")
-#for x  in t3.deepwalk():
-#    print(x)
-#    print(x._ctx)
+graph = {
+    "1": [],
+    "3": ["1"],
+    "2": ["3"],
+    "5": ["2" , "0"],
+    "0": [], 
+    "4": ["0" , "1"]}
 
-#class ROM:
-#    def __init__(self, ime):
-#        self.ime = ime
-#
-#
-#rom = ROM("esketitit")
-#
-#setattr(rom , "ctx" , 5)
-#
-#print( "haha", rom.ctx)
+# topo je   5 4 3 2 1 0
+# ili       4 5 2 3 1 0
+# topo sort
+# 4 5 0 2 3 1 
+# 4 -> 0 ,1 
+# 5 -> 2,0 
+# 0 -> null
+# 2 -> 3 
+# 3 -> 1
+# 1 -> null
 
-class proba:
-    def __init__(self, ime , prezime):
-        self.ime = ime
-        self.prezime = prezime
-    @staticmethod
-    def print_ime_prez(x,y = None):
-        return x + y if y is not None else x
-    
-def sterr(ime):
-    setattr(proba , "ime" , ime)
+def topo_sort(visited , arr):
+    def topo(node_):
+        if node_ not in visited:
+            visited.add(node_)
+            for x_ in graph[node_]:
+                topo(x_)
+            arr.append(node_)
+    for node in graph:
+        topo(node)
+    return arr
 
-#pro = proba("ide" , "gas")
-#print(pro.print_ime_prez("rom " , "todor"))
-#sterr("laki")
-#print(pro.print_ime_prez("pavle " ))
+#rom =  [x for x  in reversed(topo_sort(visited  = set(),  arr  = []))]
+#print(rom)
 
-import functools
+        
 
-class Cell:
-    def __init__(self):
-        self._alive = False
-        self.ctx = None
-    @property
-    def alive(self):
-        return self._alive
-    def set_state(self, state):
-        self._alive = bool(state)
-    set_alive = functools.partialmethod(set_state, True) # set_alive je seter alive
-    set_dead = functools.partialmethod(set_state, False) # set_dead je seter dead 
 
-niz = [1,2,3]
-def add(broj):
-    broj += 1 
-    return broj
-print([x  for x in niz]) 
-# niz2 = add(*[x  for x  in niz])
+
+
+

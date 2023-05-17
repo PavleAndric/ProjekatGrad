@@ -1,7 +1,7 @@
 import numpy as np 
 from functools import partialmethod 
-# make  a decent numpy based NN library 
-# then  add GPU support
+# make a decent numpy based NN library 
+# then add GPU support
 
 class  Function:
     def __init__(self , *tensors):
@@ -11,10 +11,9 @@ class  Function:
     def save_for_backward(self, *tensors):  # tenzori *args  fazon
         self.saved_tensors.extend(tensors)
 
-    def apply(self , func , *x): # arg je  add , mul itd <class '__main__.add'> | *x je tenzor
-        ctx = func(self, *x) # func  je funkcija
-        ret = Tensor(func.forward(ctx , self.data , *[t.data for  t  in x])) # unpack  without added dim
-        
+    def apply(self , func , *x):
+        ctx = func(self, *x)  # func je(mul , add itd)
+        ret = Tensor(func.forward(ctx , self.data , *[t.data for  t  in x])) 
         ret._ctx = ctx
         return ret
 
@@ -42,22 +41,29 @@ class  Tensor:
 
     def __repr__(self): return f"Tensor {self.data} , {self.dtype}"
 
-    # topo sort first
+    def  toposort(self, visited = set() ,nodes = []):
+        def topo(node):
+            if node not in visited:
+                visited.add(node)
+                if node._ctx != None:
+                    for x in node._ctx.parents:
+                        topo(x)
+                nodes.append(node)
+            return nodes 
+        return topo(self)
+
     def backward(self):
-        if self._ctx is None: # ako je  leaf?
-            return 
+        # must modify for unary functions
+        if self._ctx is None: return 
         assert self.shape == (1,) , f"Tensor must have a shape of (1,) instead of {self.shape}"
-        # this  is  a tuple idk  if  it should be  that
-        self.grad = np.ones_like(self.data)
-        grads = self._ctx.backward(self._ctx , self.grad)
-        if len(self._ctx.parents) == 1:
-            grads = [grads]
-        #print(self._ctx.parents , self._ctx)
-        for t, g in zip(self._ctx.parents , grads):
-            if g.shape != t.shape:
-                assert(False)
-            t.grad = Tensor(g)
-            t.backward()
+        self.grad = np.ones(self.shape, dtype = np.float32)
+
+        for i in reversed(self.toposort()):
+            if i._ctx != None:
+                grads = i._ctx.backward(i._ctx , i.grad)
+                for ts, gr in zip(i._ctx.parents, grads):
+                    assert ts.shape == gr.shape ,f"shapes of tensor {ts.shape} and grad {gr.shape} must be the same"
+                    ts.grad = gr
 
 def register(name , fxn):
     partial = partialmethod(fxn.apply , fxn) #
@@ -71,8 +77,8 @@ class mul(Function):
         return x*y
     @staticmethod
     def backward(ctx, out_grad):
-        x,y  = ctx.saved_tensors # ovde  se cuvaju tenzori
-        return x*out_grad , y*out_grad
+        x,y  = ctx.saved_tensors
+        return y*out_grad , x*out_grad 
 register("mul",mul) 
 
 class add(Function):
@@ -82,16 +88,5 @@ class add(Function):
         return x+y
     @staticmethod
     def backward(ctx, out_grad):
-        x,y  = ctx.saved_tensors
         return out_grad , out_grad
 register("add",add)
-
-
-
-t = Tensor([12])
-t1 = Tensor([2])
-c = t1.add(t)
-
-#print(c.shape == (1,), type(c.shape) , c.shape)
-c.backward()
-print(t.grad, t1.grad)
