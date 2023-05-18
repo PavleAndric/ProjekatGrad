@@ -61,6 +61,7 @@ class  Tensor:
         for i in self.toposort():
             if i._ctx:
                 grads = i._ctx.backward(i._ctx , i.grad) # example: if  _ctx is mul , it  will call i.mul.backward(set by register)
+                if  not isinstance(grads, tuple): grads = [grads]
                 for ts, gr in zip(i._ctx.parents, grads):
                     assert ts.shape == gr.shape ,f"shapes of tensor {ts.shape} and grad {gr.shape} must be the same"
                     ts.grad = Tensor(gr)
@@ -104,12 +105,48 @@ register("sub",sub)
 class pow(Function):
     @staticmethod
     def forward(ctx , x , y):
-        ctx.save_for_backward(x,y)
-        return x**y
+        out = x**y 
+        ctx.save_for_backward(x,y , out)
+        return out
     @staticmethod
     def backward(ctx, out_grad):
-        x,y = ctx.saved_tensors 
-        return y*(x**y-1)*out_grad , np.log(x) * out_grad * x 
-        
-# test
+        x,y,out= ctx.saved_tensors  # y can not  be a tensor will couse  errors
+        return y*(x**(y-1))*out_grad , np.log(x) * out_grad * out 
+register("pow",pow)
+
+class log(Function):
+    @staticmethod
+    def forward(ctx, x):
+        ctx.save_for_backward(x)
+        return np.log(x)
+    @staticmethod
+    def backward(ctx, out_grad):
+        x, = ctx.saved_tensors
+        return 1 / x * out_grad
+register("log",log)
+
+# activations 
+class relu(Function):
+    @staticmethod
+    def forward(ctx , x):
+        ctx.save_for_backward(x)
+        return np.maximum(0 , x)
+    @staticmethod
+    def backward(ctx , out_grad):
+        x, = ctx.saved_tensors
+        return np.greater(x,0) * out_grad
+register("relu",relu)
+
+class tanh(Function):
+    @staticmethod
+    def forward(ctx , x):
+        out =  np.tanh(x)
+        ctx.save_for_backward(out)
+        return out
+    @staticmethod
+    def backward(ctx , out_grad):
+        out, = ctx.saved_tensors
+        return (1 - out**2) * out_grad
+register("tanh",tanh)
+
 # TODO: add other math ops. (log ,exp) and  basic  activations (relu , sigmoid ...) 
