@@ -111,5 +111,5 @@ class pow(Function):
         x,y = ctx.saved_tensors 
         return y*(x**y-1)*out_grad , np.log(x) * out_grad * x 
         
-
+# test
 # TODO: add other math ops. (log ,exp) and  basic  activations (relu , sigmoid ...) 
