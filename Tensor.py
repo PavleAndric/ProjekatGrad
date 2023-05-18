@@ -23,13 +23,12 @@ class  Tensor:
     
         self.grad ,self._ctx = None , None
         self.requires_grad  = requires_grad
-        
         if isinstance(data, (list , tuple , int , float)):
             data = np.array(data , dtype = np.float32)
         if isinstance(data, np.ndarray): 
             data = data.astype(np.float32) 
 
-        if not isinstance(data , np.ndarray):
+        if not isinstance(data ,(np.ndarray , np.generic)):
             raise RuntimeError (f"Can't create a tensor from {data}")
         
         self.data = data 
@@ -57,20 +56,35 @@ class  Tensor:
         if self._ctx is None: return 
         assert self.shape == (1,) , f"Tensor must have a shape of (1,) instead of {self.shape}"
         self.grad = np.ones(self.shape, dtype = np.float32) # this  should be a tensors
- 
+
         for i in self.toposort():
             if i._ctx:
                 grads = i._ctx.backward(i._ctx , i.grad) # example: if  _ctx is mul , it  will call i.mul.backward(set by register)
                 if  not isinstance(grads, tuple): grads = [grads]
                 for ts, gr in zip(i._ctx.parents, grads):
+                    print(ts.shape , gr.shape)
                     assert ts.shape == gr.shape ,f"shapes of tensor {ts.shape} and grad {gr.shape} must be the same"
-                    ts.grad = Tensor(gr)
+                    ts.grad = gr # gr is np.arr should  be a tensor?? 
             i._ctx = None
 
 def register(name , func):
     partial = partialmethod(func.apply , func) 
     setattr(Tensor , name , partial) # setts new  attr to a Tensor
-    
+
+class dot(Function):
+    @staticmethod
+    def forward(ctx , x,y):
+        out = x @ y 
+        ctx.save_for_backward(x,y ,out) 
+        return out
+         
+    @staticmethod
+    def backward(ctx, out_grad):
+        x,y, out = ctx.saved_tensors
+        out1 , out2 = out_grad @ (y.T) , x.T @ (out_grad) # 3 , 1 i 3 , 3
+        return  out1 , out2
+register("dot",dot)
+
 class mul(Function):
     @staticmethod 
     def forward(ctx,x,y): 
@@ -125,6 +139,17 @@ class log(Function):
         return 1 / x * out_grad
 register("log",log)
 
+class sum(Function):
+    @staticmethod
+    def forward(ctx , x):
+        ctx.save_for_backward(x)
+        return np.array([np.sum(x)])
+    @staticmethod
+    def backward(ctx , out_grad):
+        x, = ctx.saved_tensors
+        return np.ones_like(x) * out_grad
+register("sum",sum)
+
 # activations 
 class relu(Function):
     @staticmethod
@@ -149,4 +174,18 @@ class tanh(Function):
         return (1 - out**2) * out_grad
 register("tanh",tanh)
 
-# TODO: add other math ops. (log ,exp) and  basic  activations (relu , sigmoid ...) 
+class softmax(Function):
+    @staticmethod
+    def  forward(ctx , x):
+        z = x - np.max(x)
+        out = np.exp(z) / np.sum(np.exp(z))
+        ctx.save_for_backward(x , out)
+        return out
+    @staticmethod
+    def  backward(ctx , out_grad):
+        x,out = ctx.saved_tensors
+        chain = out_grad if out_grad.shape[0] == 1 else out_grad.reshape(-1, 1)
+        output = np.matmul((-np.outer(out , out) + np.diag(out.flatten())) ,chain)
+        output = output.reshape(x.shape)
+        return  output
+register("softmax",softmax)
