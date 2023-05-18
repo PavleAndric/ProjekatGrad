@@ -101,4 +101,15 @@ class sub(Function):
         return out_grad , -out_grad
 register("sub",sub)
 
+class pow(Function):
+    @staticmethod
+    def forward(ctx , x , y):
+        ctx.save_for_backward(x,y)
+        return x**y
+    @staticmethod
+    def backward(ctx, out_grad):
+        x,y = ctx.saved_tensors 
+        return y*(x**y-1)*out_grad , np.log(x) * out_grad * x 
+        
+
 # TODO: add other math ops. (log ,exp) and  basic  activations (relu , sigmoid ...) 
