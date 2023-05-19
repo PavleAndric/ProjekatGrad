@@ -69,6 +69,12 @@ def register(name , func):
     partial = partialmethod(func.apply , func) 
     setattr(Tensor , name , partial) # setts new  attr to a Tensor
 
+# dot  can be definig as  a conv 
+# sub can be defined as a mul and add
+# div can be defined with pow
+# tanh can be definid as sigmoid
+# softmax  implementation is just  stupid (find  a better way)
+
 class dot(Function):
     @staticmethod
     def forward(ctx , x,y):
@@ -194,16 +200,3 @@ class softmax(Function):
         return  output
 register("softmax",softmax)
 
-
-t1 = Tensor([[1.] , [2.] ,[3.]], requires_grad = True) # (3,)
-t2 = Tensor([[0.1,0.2,0.3] , [0.4,0.5,0.6] , [0.7,0.8,0.9]] , requires_grad = True) # (3, 3)
-t3 = t2.dot(t1)  # 3,
-t4 = t3.softmax()
-t5 = t4.sum()
-t5.backward()
-
-print(t5.grad)
-print(t4.grad)
-print(t3.grad)
-print(t2.grad)
-print(t1.grad)
