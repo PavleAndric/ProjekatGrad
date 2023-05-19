@@ -12,7 +12,7 @@ class  Function:
         self.saved_tensors.extend(tensors)
 
     def apply(self , func , *x):
-        ctx = func(self, *x)  # func je(mul , add itd)
+        ctx = func(self, *x)
         ret = Tensor(func.forward(ctx , self.data , *[t.data for  t  in x])) 
         ret._ctx = ctx
         return ret
@@ -52,17 +52,15 @@ class  Tensor:
         return reversed(topo(self))
 
     def backward(self):
-        # must modify for unary functions
         if self._ctx is None: return 
         assert self.shape == (1,) , f"Tensor must have a shape of (1,) instead of {self.shape}"
-        self.grad = np.ones(self.shape, dtype = np.float32) # this  should be a tensors
+        self.grad = np.ones(self.shape, dtype = np.float32) 
 
         for i in self.toposort():
             if i._ctx:
                 grads = i._ctx.backward(i._ctx , i.grad) # example: if  _ctx is mul , it  will call i.mul.backward(set by register)
                 if  not isinstance(grads, tuple): grads = [grads]
                 for ts, gr in zip(i._ctx.parents, grads):
-                    print(ts.shape , gr.shape)
                     assert ts.shape == gr.shape ,f"shapes of tensor {ts.shape} and grad {gr.shape} must be the same"
                     ts.grad = gr # gr is np.arr should  be a tensor?? 
             i._ctx = None
@@ -75,13 +73,17 @@ class dot(Function):
     @staticmethod
     def forward(ctx , x,y):
         out = x @ y 
-        ctx.save_for_backward(x,y ,out) 
+        ctx.save_for_backward(x,y) 
         return out
          
     @staticmethod
-    def backward(ctx, out_grad):
-        x,y, out = ctx.saved_tensors
-        out1 , out2 = out_grad @ (y.T) , x.T @ (out_grad) # 3 , 1 i 3 , 3
+    def backward(ctx, out_grad): # TODO :make a nicer  way  of doing this
+        x,y= ctx.saved_tensors
+        t1 = np.expand_dims(x, 0) if x.ndim < 2 else x # za  Y.grad
+        out_grad_1 = np.expand_dims(out_grad , 0) if out_grad.ndim < 2 else out_grad
+        t2 = np.expand_dims(y  ,-1) if y.ndim < 2 else y
+        out1 = (out_grad_1 @ t2.T).reshape(x.shape) # bad
+        out2 = (t1.T @ out_grad_1).reshape(y.shape) # bad
         return  out1 , out2
 register("dot",dot)
 
@@ -124,7 +126,7 @@ class pow(Function):
         return out
     @staticmethod
     def backward(ctx, out_grad):
-        x,y,out= ctx.saved_tensors  # y can not  be a tensor will couse  errors
+        x,y,out= ctx.saved_tensors  # y can not be a tensor will couse  errors
         return y*(x**(y-1))*out_grad , np.log(x) * out_grad * out 
 register("pow",pow)
 
@@ -182,10 +184,26 @@ class softmax(Function):
         ctx.save_for_backward(x , out)
         return out
     @staticmethod
+
     def  backward(ctx , out_grad):
         x,out = ctx.saved_tensors
-        chain = out_grad if out_grad.shape[0] == 1 else out_grad.reshape(-1, 1)
-        output = np.matmul((-np.outer(out , out) + np.diag(out.flatten())) ,chain)
+        chain = out_grad if out_grad.ndim < 2 else out_grad.reshape(-1 , 1) 
+        chain = chain if x.ndim < 2 else chain.reshape(x.shape)
+        output = (-np.outer(out , out) + np.diag(out.flatten())) @ chain
         output = output.reshape(x.shape)
         return  output
 register("softmax",softmax)
+
+
+t1 = Tensor([[1.] , [2.] ,[3.]], requires_grad = True) # (3,)
+t2 = Tensor([[0.1,0.2,0.3] , [0.4,0.5,0.6] , [0.7,0.8,0.9]] , requires_grad = True) # (3, 3)
+t3 = t2.dot(t1)  # 3,
+t4 = t3.softmax()
+t5 = t4.sum()
+t5.backward()
+
+print(t5.grad)
+print(t4.grad)
+print(t3.grad)
+print(t2.grad)
+print(t1.grad)
