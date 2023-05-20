@@ -4,7 +4,13 @@ import  numpy as  np
 # dot  can be definig as  a conv 
 # tanh can be definid as sigmoid
 # softmax  implementation is just stupid (find  a better way)
-
+# broadcasting is fckd ! 
+def unbrodcast(x , desired_shape): # make this  better
+    if x.shape != desired_shape:
+        out = np.array([np.sum(x)])
+        return out
+    return x
+    
 class dot(Function):
     @staticmethod
     def forward(ctx , x,y):
@@ -31,7 +37,7 @@ class mul(Function):
     @staticmethod
     def backward(ctx, out_grad):
         x,y  = ctx.saved_tensors
-        return y*out_grad , x*out_grad 
+        return unbrodcast(y * out_grad , x.shape) , unbrodcast(x * out_grad , y.shape)
 register("mul",mul) 
 
 class add(Function):
@@ -53,7 +59,7 @@ class pow(Function):
     @staticmethod
     def backward(ctx, out_grad):
         x,y,out= ctx.saved_tensors  # y can not be a tensor will couse  errors
-        return y*(x**(y-1))*out_grad , np.log(x) * out_grad * out 
+        return unbrodcast(y*(x**(y-1))* out_grad  , x.shape), unbrodcast(np.log(x) * out_grad * out , y.shape)
 register("pow",pow)
 
 class log(Function):

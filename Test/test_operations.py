@@ -22,6 +22,8 @@ class TestOps(unittest.TestCase):
         testing([(45, 65) ,(45, 65)] , torch.mul , Tensor.Mul)
     def test_pow(self):
         testing([(45, 65) ,(45, 65)] , torch.pow , Tensor.Pow)
+    def test_div(self):
+        testing([(45, 65) ,(45, 65)] , torch.div , Tensor.Div)
     def test_log(self):
         testing([(45, 65)] , torch.log , Tensor.Log)
     def test_relu(self):

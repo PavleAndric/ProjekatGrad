@@ -1,4 +1,5 @@
 import numpy as np 
+import math
 from functools import partialmethod 
 # make a decent numpy based NN library 
 # then add GPU support
@@ -61,8 +62,9 @@ class  Tensor:
                 grads = i._ctx.backward(i._ctx , i.grad) # example: if  _ctx is mul , it  will call i.mul.backward(set by register)
                 if  not isinstance(grads, tuple): grads = [grads]
                 for ts, gr in zip(i._ctx.parents, grads):
+                    print(ts.shape, gr.shape)
                     assert ts.shape == gr.shape ,f"shapes of tensor {ts.shape} and grad {gr.shape} must be the same"
-                    ts.grad = gr # gr is np.arr should  be a tensor?? 
+                    ts.grad = gr if ts.grad is None else (ts.grad + gr)
             i._ctx = None
 
     def Mul(self , x):
@@ -75,14 +77,26 @@ class  Tensor:
         return self.add(x.mul(Tensor([-1])))  # this is ugly
     def Pow(self, x):
         return self.pow(x)
+    def Div(self, x):
+        return self.mul(x.pow(Tensor([-1])))
     def Log(self):
         return self.log()
     def Sqrt(self):
         return self.pow(Tensor[0.5])
+    def Sum(self):
+        return self.sum()
     def Tanh(self):
         return  self.tanh()
     def Relu(self):
         return self.relu()
+    def Matmul(self,x):
+        return  self.dot(x)
+    def Softmax(self):
+        return self.softmax()
+    def Logsoftmax(self):
+        return self.softmax().log()
+    def test_softmax(self):
+        pass
     
     
 def register(name , func):
