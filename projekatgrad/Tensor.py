@@ -65,6 +65,14 @@ class  Tensor:
                     ts.grad = gr # gr is np.arr should  be a tensor?? 
             i._ctx = None
 
+
+    def neg(self):
+        return self.data * -1 
+    def div(self, x):
+        return self.mul(x.pow(Tensor([-1])))
+    def sqrt(self):
+        return self.pow(Tensor([0.5]))
+
 def register(name , func):
     partial = partialmethod(func.apply , func) 
     setattr(Tensor , name , partial) # setts new  attr to a Tensor
@@ -157,7 +165,7 @@ class sum(Function):
         x, = ctx.saved_tensors
         return np.ones_like(x) * out_grad
 register("sum",sum)
-
+ 
 # activations 
 class relu(Function):
     @staticmethod
@@ -199,4 +207,3 @@ class softmax(Function):
         output = output.reshape(x.shape)
         return  output
 register("softmax",softmax)
-
