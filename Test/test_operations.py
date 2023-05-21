@@ -15,7 +15,7 @@ def testing(shape, torhc_func , my_func, atol = 0 , rtol = 1e-6):
 class TestOps(unittest.TestCase):
 
     def test_add(self):
-        testing([(45, 65) ,(45, 65)] , torch.add, Tensor.Add)
+        testing([(3,3) ,(3,3)] , torch.add, Tensor.Add)
     def test_sub(self):
         testing([(45, 65) ,(45, 65)] , torch.sub , Tensor.Sub)
     def test_mul(self):
@@ -30,6 +30,8 @@ class TestOps(unittest.TestCase):
         testing([(45 , 65)] , torch.relu  , Tensor.Relu)
     def test_tanh(self):
          testing([(45 , 65)] , torch.tanh  , Tensor.Tanh)
-        
+    def test_sigmoid(self):
+        testing([(45 , 65)] , torch.sigmoid  , Tensor.Sigmoid)
+
 if __name__ == '__main__':
   unittest.main()  

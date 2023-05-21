@@ -40,6 +40,16 @@ class mul(Function):
         return unbrodcast(y * out_grad , x.shape) , unbrodcast(x * out_grad , y.shape)
 register("mul",mul) 
 
+class div(Function):
+    def forward(ctx,x,y): 
+        ctx.save_for_backward(x,y)
+        return x/y
+    @staticmethod
+    def backward(ctx, out_grad):
+        x,y  = ctx.saved_tensors
+        return unbrodcast(1/y * out_grad , x.shape) , unbrodcast(-(x/y**2) * out_grad , y.shape) 
+register("div",div)
+
 class add(Function):
     @staticmethod 
     def forward(ctx,x,y):
@@ -49,6 +59,16 @@ class add(Function):
     def backward(ctx, out_grad):
         return out_grad , out_grad
 register("add",add)
+
+class sub(Function):
+    @staticmethod 
+    def forward(ctx,x,y):
+        ctx.save_for_backward(x,y)
+        return x-y
+    @staticmethod
+    def backward(ctx, out_grad):
+        return out_grad , -out_grad
+register("sub",sub)
 
 class pow(Function):
     @staticmethod
@@ -95,33 +115,3 @@ class relu(Function):
         x, = ctx.saved_tensors
         return np.greater(x,0) * out_grad
 register("relu",relu)
-
-class tanh(Function):
-    @staticmethod
-    def forward(ctx , x):
-        out =  np.tanh(x)
-        ctx.save_for_backward(out)
-        return out
-    @staticmethod
-    def backward(ctx , out_grad):
-        out, = ctx.saved_tensors
-        return (1 - out**2) * out_grad
-register("tanh",tanh)
-
-class softmax(Function):
-    @staticmethod
-    def  forward(ctx , x):
-        z = x - np.max(x)
-        out = np.exp(z) / np.sum(np.exp(z))
-        ctx.save_for_backward(x , out)
-        return out
-    @staticmethod
-
-    def  backward(ctx , out_grad):
-        x,out = ctx.saved_tensors
-        chain = out_grad if out_grad.ndim < 2 else out_grad.reshape(-1 , 1) 
-        chain = chain if x.ndim < 2 else chain.reshape(x.shape)
-        output = (-np.outer(out , out) + np.diag(out.flatten())) @ chain
-        output = output.reshape(x.shape)
-        return  output
-register("softmax",softmax)

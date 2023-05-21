@@ -13,9 +13,8 @@ class  Function:
         self.saved_tensors.extend(tensors)
 
     def apply(self , func , *x):
-        
         ctx = func(self, *x)
-        ret = Tensor(func.forward(ctx , self.data , *[t.data for  t  in x])) 
+        ret = Tensor(func.forward(ctx , self.data  , *[t.data if isinstance(t, Tensor) else t for t in x]))  #this  is shit
         ret._ctx = ctx
         return ret
     
@@ -62,42 +61,59 @@ class  Tensor:
                 grads = i._ctx.backward(i._ctx , i.grad) # example: if  _ctx is mul , it  will call i.mul.backward(set by register)
                 if  not isinstance(grads, tuple): grads = [grads]
                 for ts, gr in zip(i._ctx.parents, grads):
-                    print(ts.shape, gr.shape)
                     assert ts.shape == gr.shape ,f"shapes of tensor {ts.shape} and grad {gr.shape} must be the same"
                     ts.grad = gr if ts.grad is None else (ts.grad + gr)
             i._ctx = None
 
-    def Mul(self , x):
-        return self.mul(x)
-    def Add(self, x):
-        return self.add(x)
-    def Neg(self): 
-        return self.mul(Tensor([-1]))
-    def Sub(self,x): # 10 -5 = 5 10 * (5*-1)
-        return self.add(x.mul(Tensor([-1])))  # this is ugly
-    def Pow(self, x):
-        return self.pow(x)
-    def Div(self, x):
-        return self.mul(x.pow(Tensor([-1])))
-    def Log(self):
-        return self.log()
-    def Sqrt(self):
-        return self.pow(Tensor[0.5])
-    def Sum(self):
-        return self.sum()
-    def Tanh(self):
-        return  self.tanh()
-    def Relu(self):
-        return self.relu()
-    def Matmul(self,x):
-        return  self.dot(x)
-    def Softmax(self):
-        return self.softmax()
-    def Logsoftmax(self):
-        return self.softmax().log()
-    def test_softmax(self):
-        pass
+    # for binary ?
+    def assure_tensor(self , x , func =  None  , reversed = False):
+        self = self if isinstance(self , Tensor) else Tensor(self)
+        x =  x if isinstance(x , Tensor) else Tensor(x)
+        return func(x, self) if reversed else func(self, x)      
+   
+    # fundamental(sub can be kicked)
+    def Mul(self, x ,reversed = False):  return self.assure_tensor(x, Tensor.mul ,reversed)     
+    def Add(self, x  ,reversed = False): return self.assure_tensor(x, Tensor.add ,reversed)
+    def Sub(self, x , reversed = False): return self.assure_tensor(x, Tensor.sub ,reversed)
+    def Pow(self, x , reversed = False): return self.assure_tensor(x, Tensor.pow ,reversed)
+    def Div(self, x , reversed = False): return self.assure_tensor(x, Tensor.div ,reversed)
     
+    def Matmul(self,x): return  self.dot(x) # dot matmul
+    # basic math
+    def Log(self):return self.log()        
+    def Sqrt(self): return self.pow(0.5)
+    def Neg(self):  return self.mul(-1)
+    
+    def __add__(self, x): return self.Add(x)
+    def __sub__(self, x): return self.Sub(x)
+    def __mul__(self, x): return self.Mul(x)
+    def __pow__(self, x): return self.Pow(x)
+    def __truediv__(self, x): return self.Div(x)
+    def __matmul__(self, x): return self.Matmul(x)
+    def __neg__(self): return self.Neg()
+
+    def __radd__(self, x): return self.Add(x , reversed = False)
+    def __rsub__(self, x): return self.Sub(x , reversed = True)
+    def __rmul__(self, x): return self.Mul(x , reversed = False)
+    def __rpow__(self, x): return self.Pow(x , reversed = True)
+    def __rtruediv__(self, x): return self.Div(x , reversed = True)
+        
+    # reduce
+    def Sum(self): return self.sum()
+
+    # activations 
+    def Sigmoid(self): return self._sig()
+    def Relu(self): return self.relu() 
+    def _sig(self): return 1 / (1 + np.e ** (-self))  
+    def Tanh(self): return 2 * ((2 * self)._sig()) - 1    
+        
+    def Softmax(self):
+        exp  =np.e ** self
+        s = exp.sum()
+        return exp / s 
+    
+    def Logsoftmax(self):
+        return self.Softmax().Log() # Log  or log
     
 def register(name , func):
     partial = partialmethod(func.apply , func) 
