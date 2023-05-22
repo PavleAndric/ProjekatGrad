@@ -1,20 +1,20 @@
 import numpy as np 
-import math
 from functools import partialmethod 
 # make a decent numpy based NN library 
 # then add GPU support
 
 class  Function:
-    def __init__(self , *tensors):
-        self.parents = tensors
+    def __init__(self , *tensors , **kwargs):
+        self.parents  = tuple([x for x in tensors if isinstance(x ,Tensor)]) # bad fix this register is not good#tensors #
+        #print(type(self.parents))
         self.saved_tensors = []
     
-    def save_for_backward(self, *tensors):  # tenzori *args  fazon
+    def save_for_backward(self, *tensors):  
         self.saved_tensors.extend(tensors)
 
-    def apply(self , func , *x):
+    def apply(self , func , *x , **kwargs):
         ctx = func(self, *x)
-        ret = Tensor(func.forward(ctx , self.data  , *[t.data if isinstance(t, Tensor) else t for t in x]))  #this  is shit
+        ret = Tensor(func.forward(ctx , self.data  , *[t.data if isinstance(t, Tensor) else t for t in x] , **kwargs))  #this  is shit
         ret._ctx = ctx
         return ret
     
@@ -67,23 +67,25 @@ class  Tensor:
 
     # for binary ?
     def assure_tensor(self , x , func =  None  , reversed = False):
+          
         self = self if isinstance(self , Tensor) else Tensor(self)
         x =  x if isinstance(x , Tensor) else Tensor(x)
         return func(x, self) if reversed else func(self, x)      
    
     # fundamental(sub can be kicked)
-    def Mul(self, x ,reversed = False):  return self.assure_tensor(x, Tensor.mul ,reversed)     
+    def Mul(self, x  ,reversed = False):  return self.assure_tensor(x, Tensor.mul ,reversed)     
     def Add(self, x  ,reversed = False): return self.assure_tensor(x, Tensor.add ,reversed)
     def Sub(self, x , reversed = False): return self.assure_tensor(x, Tensor.sub ,reversed)
-    def Pow(self, x , reversed = False): return self.assure_tensor(x, Tensor.pow ,reversed)
+    def Pow(self, x , reversed = False): return self.assure_tensor(x, Tensor.pow ,reversed) 
     def Div(self, x , reversed = False): return self.assure_tensor(x, Tensor.div ,reversed)
-    
+    def Exp(self, x , reversed  = False):  return self.assure_tensor(None , Tensor.exp ,reversed)
     def Matmul(self,x): return  self.dot(x) # dot matmul
     # basic math
     def Log(self):return self.log()        
     def Sqrt(self): return self.pow(0.5)
     def Neg(self):  return self.mul(-1)
-    
+   
+
     def __add__(self, x): return self.Add(x)
     def __sub__(self, x): return self.Sub(x)
     def __mul__(self, x): return self.Mul(x)
@@ -99,24 +101,23 @@ class  Tensor:
     def __rtruediv__(self, x): return self.Div(x , reversed = True)
         
     # reduce
-    def Sum(self): return self.sum()
+    def Sum(self, dim = None,  keepdims = False): return self.sum(dim , keepdims)
 
     # activations 
     def Sigmoid(self): return self._sig()
     def Relu(self): return self.relu() 
-    def _sig(self): return 1 / (1 + np.e ** (-self))  
-    def Tanh(self): return 2 * ((2 * self)._sig()) - 1    
+    def _sig(self): return 1 / (1 + (-self).exp())    
+    def Tanh(self): return 2.0 * ((2.0 * self)._sig()) - 1.0
+    def Logsoftmax(self, dim ): return self.Softmax(dim).log()   
         
-    def Softmax(self):
-        exp  =np.e ** self
-        s = exp.sum()
-        return exp / s 
-    
-    def Logsoftmax(self):
-        return self.Softmax().Log() # Log  or log
+    def Softmax(self , dim):
+        exp  = self.exp()
+        s = exp.sum(dim , keepdims = True if dim == 1 else False)
+        out = exp / s 
+        return out
     
 def register(name , func):
-    partial = partialmethod(func.apply , func) 
-    setattr(Tensor , name , partial) # setts new  attr to a Tensor
+    partial = partialmethod(func.apply , func)
+    setattr(Tensor , name , partial)
 
 import projekatgrad.ops 
