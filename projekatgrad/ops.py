@@ -1,11 +1,11 @@
-from projekatgrad.Tensor import Function, register
+from projekatgrad.Tensor import Tensor, Function, register
 import  numpy as  np
 
-# dot  can be definig as  a conv 
+# dot  can be definig as  a conv(
 # broadcasting is fckd ! 
-
+# only  fundamental ops
 def unbroad_reshape(x, desired_shape): # eithher  sum  or rehape
-    
+    print(x)
     if max(x.shape) > max(desired_shape):
         x = np.array([np.sum(x)])
         if x.shape != desired_shape:
@@ -21,16 +21,10 @@ class dot(Function):
         out = x @ y 
         ctx.save_for_backward(x,y) 
         return out
-         
     @staticmethod
-    def backward(ctx, out_grad): # TODO :make a nicer  way  of doing this
+    def backward(ctx, out_grad): 
         x,y= ctx.saved_tensors
-        t1 = np.expand_dims(x, 0) if x.ndim < 2 else x # za  Y.grad
-        out_grad_1 = np.expand_dims(out_grad , 0) if out_grad.ndim < 2 else out_grad
-        t2 = np.expand_dims(y  ,-1) if y.ndim < 2 else y
-        out1 = (out_grad_1 @ t2.T).reshape(x.shape) # bad
-        out2 = (t1.T @ out_grad_1).reshape(y.shape) # bad
-        return  unbroad_reshape(out1 , x.shape) , unbroad_reshape(out2 ,y.shape)
+        return  unbroad_reshape(out_grad @ y.T , x.shape) , unbroad_reshape(x.T @ out_grad ,y.shape)
 register("dot",dot)
 
 class mul(Function):
@@ -44,16 +38,6 @@ class mul(Function):
         return unbroad_reshape(y * out_grad , x.shape) , unbroad_reshape(x * out_grad , y.shape)
 register("mul",mul) 
 
-class div(Function):
-    def forward(ctx,x,y): 
-        ctx.save_for_backward(x,y)
-        return x/y
-    @staticmethod
-    def backward(ctx, out_grad):
-        x,y  = ctx.saved_tensors
-        return unbroad_reshape(1/y * out_grad , x.shape) , unbroad_reshape(-(x/y**2) * out_grad , y.shape) 
-register("div",div)
-
 class add(Function):
     @staticmethod 
     def forward(ctx,x,y):
@@ -63,16 +47,6 @@ class add(Function):
     def backward(ctx, out_grad):
         return out_grad , out_grad
 register("add",add)
-
-class sub(Function):
-    @staticmethod 
-    def forward(ctx,x,y):
-        ctx.save_for_backward(x,y)
-        return x-y
-    @staticmethod
-    def backward(ctx, out_grad):
-        return out_grad , -out_grad
-register("sub",sub)
 
 class pow(Function):
     @staticmethod

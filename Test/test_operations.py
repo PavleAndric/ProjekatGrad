@@ -37,7 +37,8 @@ class TestOps(unittest.TestCase):
     def test_matmul(self):
         helper_test([(45, 65) ,(65, 45)] , lambda x ,y : x @ y , lambda x ,y : x @ y)
         helper_test([(45, 65) ,(65, 1)] , lambda x ,y : x @ y , lambda x ,y : x @ y)
-    # sum  and reduce
+        helper_test([(45, 1 ) ,(1, 1)] , lambda x ,y : x @ y , lambda x ,y : x @ y)
+    # sum  and 
     def test_sum(self):
         helper_test([(45 , 65)] , torch.sum  , Tensor.Sum)
         helper_test([(45 , 65)] , lambda x : x.sum(dim = 0)   , lambda x:x.Sum(dim = 0))

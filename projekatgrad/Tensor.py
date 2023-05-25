@@ -1,20 +1,20 @@
 import numpy as np 
 from functools import partialmethod 
 # make a decent numpy based NN library 
-# then add GPU support
+# then add GPU support 
 
 class  Function:
-    def __init__(self , *tensors , **kwargs):
-        self.parents  = tuple([x for x in tensors if isinstance(x ,Tensor)]) # bad fix this register is not good#tensors #
+    def __init__(self , *tensors):
+        self.parents  = tuple([x for x in tensors if isinstance(x ,Tensor)]) # not  ideal
         #print(type(self.parents))
         self.saved_tensors = []
     
     def save_for_backward(self, *tensors):  
         self.saved_tensors.extend(tensors)
 
-    def apply(self , func , *x , **kwargs):
+    def apply(self , func , *x):
         ctx = func(self, *x)
-        ret = Tensor(func.forward(ctx , self.data  , *[t.data if isinstance(t, Tensor) else t for t in x] , **kwargs))  #this  is shit
+        ret = Tensor(func.forward(ctx , self.data  , *[t.data if isinstance(t, Tensor) else t for t in x])) # returns Tensor but args  are  np.array
         ret._ctx = ctx
         return ret
     
@@ -22,14 +22,14 @@ class  Tensor:
     def __init__(self, data , requires_grad = False):
     
         self.grad ,self._ctx = None , None
-        self.requires_grad  = requires_grad
+        self.requires_grad  = requires_grad # if any tensor  requres_grad then  do  backpass 
         if isinstance(data, (list , tuple , int , float)):
             data = np.array(data , dtype = np.float32)
         if isinstance(data, np.ndarray): 
             data = data.astype(np.float32) 
 
         if not isinstance(data ,(np.ndarray , np.generic)):
-            raise RuntimeError (f"Can't create a tensor from {data}")
+            raise RuntimeError (f"Can't create a tensor from {data , type(data)}")
         
         self.data = data 
 
@@ -65,27 +65,27 @@ class  Tensor:
                     ts.grad = gr if ts.grad is None else (ts.grad + gr)
             i._ctx = None
 
-    # for binary ?
-    def assure_tensor(self , x , func =  None  , reversed = False):
+    # maybe  not  ideal
+    def assure_tensor(self , x, func =  None  , reversed = False):
           
         self = self if isinstance(self , Tensor) else Tensor(self)
         x =  x if isinstance(x , Tensor) else Tensor(x)
         return func(x, self) if reversed else func(self, x)      
    
-    # fundamental(sub can be kicked)
+    # fundamental
     def Mul(self, x  ,reversed = False):  return self.assure_tensor(x, Tensor.mul ,reversed)     
     def Add(self, x  ,reversed = False): return self.assure_tensor(x, Tensor.add ,reversed)
-    def Sub(self, x , reversed = False): return self.assure_tensor(x, Tensor.sub ,reversed)
     def Pow(self, x , reversed = False): return self.assure_tensor(x, Tensor.pow ,reversed) 
-    def Div(self, x , reversed = False): return self.assure_tensor(x, Tensor.div ,reversed)
-    def Exp(self, x , reversed  = False):  return self.assure_tensor(None , Tensor.exp ,reversed)
-    def Matmul(self,x): return  self.dot(x) # dot matmul
+    def Exp(self):  return self.exp() # assumes  self  is a tensor
+
     # basic math
+    def Div(self, x , reversed = False): return self * x ** -1 if not reversed else x * self**-1 # this is  not  ideal
+    def Sub(self,x , reversed = False): return self + (-x) if not reversed else x + (-self)
     def Log(self):return self.log()        
     def Sqrt(self): return self.pow(0.5)
     def Neg(self):  return self.mul(-1)
-   
-
+    def Matmul(self,x): return  self.dot(x) 
+    
     def __add__(self, x): return self.Add(x)
     def __sub__(self, x): return self.Sub(x)
     def __mul__(self, x): return self.Mul(x)
@@ -116,7 +116,7 @@ class  Tensor:
         out = exp / s 
         return out
     
-def register(name , func):
+def register(name , func): # this  is called n number of times (n  is tyhe number  of fucntins)
     partial = partialmethod(func.apply , func)
     setattr(Tensor , name , partial)
 
