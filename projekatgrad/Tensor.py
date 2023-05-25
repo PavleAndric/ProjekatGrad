@@ -6,7 +6,6 @@ from functools import partialmethod
 class  Function:
     def __init__(self , *tensors):
         self.parents  = tuple([x for x in tensors if isinstance(x ,Tensor)]) # not  ideal
-        #print(type(self.parents))
         self.saved_tensors = []
     
     def save_for_backward(self, *tensors):  
@@ -23,7 +22,10 @@ class  Tensor:
     
         self.grad ,self._ctx = None , None
         self.requires_grad  = requires_grad # if any tensor  requres_grad then  do  backpass 
-        if isinstance(data, (list , tuple , int , float)):
+
+        if isinstance(data, (int , float)):
+            data = np.array([data] , dtype = np.float32)
+        if isinstance(data, (list , tuple)):
             data = np.array(data , dtype = np.float32)
         if isinstance(data, np.ndarray): 
             data = data.astype(np.float32) 
@@ -31,7 +33,7 @@ class  Tensor:
         if not isinstance(data ,(np.ndarray , np.generic)):
             raise RuntimeError (f"Can't create a tensor from {data , type(data)}")
         
-        self.data = data 
+        self.data = data  # by the time its here it is a data is np.array with at leats one dim
 
     @property
     def dtype(self): return self.data.dtype
@@ -77,7 +79,7 @@ class  Tensor:
     def Add(self, x  ,reversed = False): return self.assure_tensor(x, Tensor.add ,reversed)
     def Pow(self, x , reversed = False): return self.assure_tensor(x, Tensor.pow ,reversed) 
     def Exp(self):  return self.exp() # assumes  self  is a tensor
-
+    
     # basic math
     def Div(self, x , reversed = False): return self * x ** -1 if not reversed else x * self**-1 # this is  not  ideal
     def Sub(self,x , reversed = False): return self + (-x) if not reversed else x + (-self)
@@ -112,7 +114,7 @@ class  Tensor:
         
     def Softmax(self , dim):
         exp  = self.exp()
-        s = exp.sum(dim , keepdims = True if dim == 1 else False)
+        s = exp.Sum(dim , keepdims = True if dim == 1 else False)  # this is bs
         out = exp / s 
         return out
     

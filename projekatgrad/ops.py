@@ -1,19 +1,15 @@
 from projekatgrad.Tensor import Tensor, Function, register
 import  numpy as  np
 
-# dot  can be definig as  a conv(
-# broadcasting is fckd ! 
-# only  fundamental ops
-def unbroad_reshape(x, desired_shape): # eithher  sum  or rehape
-    print(x)
-    if max(x.shape) > max(desired_shape):
-        x = np.array([np.sum(x)])
-        if x.shape != desired_shape:
-            x = x.reshape(desired_shape)
 
-    if x.shape != desired_shape:
-        x  = x.reshape(desired_shape)
-    return x
+# dot  can be definig as  a conv(
+# only  fundamental ops
+# grad needs  to be  the  same shame as input
+def unbroad_reshape(x, desired_shape):
+    
+    axis = tuple(i for i ,x in enumerate(desired_shape) if x== 1 and len(x.shape) >= len(desired_shape)) if desired_shape != (1,) else None # None -> sum everting
+    x = x.sum(axis).reshape(desired_shape)
+    return 
 
 class dot(Function):
     @staticmethod
@@ -35,6 +31,7 @@ class mul(Function):
     @staticmethod
     def backward(ctx, out_grad):
         x,y  = ctx.saved_tensors
+        
         return unbroad_reshape(y * out_grad , x.shape) , unbroad_reshape(x * out_grad , y.shape)
 register("mul",mul) 
 
@@ -56,8 +53,8 @@ class pow(Function):
         return out
     @staticmethod
     def backward(ctx, out_grad):
-        x,y,out= ctx.saved_tensors  # y can not be a tensor will couse  errors
-        return unbroad_reshape(y*(x**(y-1))* out_grad  , x.shape), unbroad_reshape(np.log(x) * out_grad * out , y.shape)
+        x,y,out= ctx.saved_tensors  
+        return unbroad_reshape(y*(x**(y-1))* out_grad  , x.shape), unbroad_reshape((np.log(x) * out_grad * out) , y.shape)
 register("pow",pow)
 
 class exp(Function):
@@ -68,7 +65,7 @@ class exp(Function):
         return out
     @staticmethod
     def backward(ctx, out_grad):
-        out , = ctx.saved_tensors # y can not be a tensor will couse  errors
+        out , = ctx.saved_tensors 
         return unbroad_reshape(out * out_grad , out.shape)
 register("exp",exp)
 
@@ -87,8 +84,9 @@ class sum(Function):
     @staticmethod
     def forward(ctx , x, dim = None, keepdims = False):
         ctx.save_for_backward(x)
-        return np.array([np.sum(x)] if dim == None else np.sum(x, axis = dim , keepdims = keepdims))
-     
+        out = np.array(np.sum(x , axis = dim , keepdims=  keepdims))
+        out  = out.reshape(1,) if out.shape  == () else out # tensor can't of dim 0
+        return out
     @staticmethod
     def backward(ctx , out_grad):
         x, = ctx.saved_tensors
