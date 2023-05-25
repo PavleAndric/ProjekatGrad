@@ -1,35 +1,35 @@
 import numpy as np 
 from functools import partialmethod 
 # make a decent numpy based NN library 
-# then add GPU support
+# then add GPU support 
 
 class  Function:
     def __init__(self , *tensors):
-        self.parents = tensors
+        self.parents  = tuple([x for x in tensors if isinstance(x ,Tensor)]) # not  ideal
+        #print(type(self.parents))
         self.saved_tensors = []
     
-    def save_for_backward(self, *tensors):  # tenzori *args  fazon
+    def save_for_backward(self, *tensors):  
         self.saved_tensors.extend(tensors)
 
     def apply(self , func , *x):
         ctx = func(self, *x)
-        ret = Tensor(func.forward(ctx , self.data , *[t.data for  t  in x])) 
+        ret = Tensor(func.forward(ctx , self.data  , *[t.data if isinstance(t, Tensor) else t for t in x])) # returns Tensor but args  are  np.array
         ret._ctx = ctx
         return ret
-
+    
 class  Tensor:
-
     def __init__(self, data , requires_grad = False):
     
         self.grad ,self._ctx = None , None
-        self.requires_grad  = requires_grad
+        self.requires_grad  = requires_grad # if any tensor  requres_grad then  do  backpass 
         if isinstance(data, (list , tuple , int , float)):
             data = np.array(data , dtype = np.float32)
         if isinstance(data, np.ndarray): 
             data = data.astype(np.float32) 
 
         if not isinstance(data ,(np.ndarray , np.generic)):
-            raise RuntimeError (f"Can't create a tensor from {data}")
+            raise RuntimeError (f"Can't create a tensor from {data , type(data)}")
         
         self.data = data 
 
@@ -62,148 +62,62 @@ class  Tensor:
                 if  not isinstance(grads, tuple): grads = [grads]
                 for ts, gr in zip(i._ctx.parents, grads):
                     assert ts.shape == gr.shape ,f"shapes of tensor {ts.shape} and grad {gr.shape} must be the same"
-                    ts.grad = gr # gr is np.arr should  be a tensor?? 
+                    ts.grad = gr if ts.grad is None else (ts.grad + gr)
             i._ctx = None
 
+    # maybe  not  ideal
+    def assure_tensor(self , x, func =  None  , reversed = False):
+          
+        self = self if isinstance(self , Tensor) else Tensor(self)
+        x =  x if isinstance(x , Tensor) else Tensor(x)
+        return func(x, self) if reversed else func(self, x)      
+   
+    # fundamental
+    def Mul(self, x  ,reversed = False):  return self.assure_tensor(x, Tensor.mul ,reversed)     
+    def Add(self, x  ,reversed = False): return self.assure_tensor(x, Tensor.add ,reversed)
+    def Pow(self, x , reversed = False): return self.assure_tensor(x, Tensor.pow ,reversed) 
+    def Exp(self):  return self.exp() # assumes  self  is a tensor
 
-    def neg(self):
-        return self.data * -1 
-    def div(self, x):
-        return self.mul(x.pow(Tensor([-1])))
-    def sqrt(self):
-        return self.pow(Tensor([0.5]))
+    # basic math
+    def Div(self, x , reversed = False): return self * x ** -1 if not reversed else x * self**-1 # this is  not  ideal
+    def Sub(self,x , reversed = False): return self + (-x) if not reversed else x + (-self)
+    def Log(self):return self.log()        
+    def Sqrt(self): return self.pow(0.5)
+    def Neg(self):  return self.mul(-1)
+    def Matmul(self,x): return  self.dot(x) 
+    
+    def __add__(self, x): return self.Add(x)
+    def __sub__(self, x): return self.Sub(x)
+    def __mul__(self, x): return self.Mul(x)
+    def __pow__(self, x): return self.Pow(x)
+    def __truediv__(self, x): return self.Div(x)
+    def __matmul__(self, x): return self.Matmul(x)
+    def __neg__(self): return self.Neg()
 
-def register(name , func):
-    partial = partialmethod(func.apply , func) 
-    setattr(Tensor , name , partial) # setts new  attr to a Tensor
+    def __radd__(self, x): return self.Add(x , reversed = False)
+    def __rsub__(self, x): return self.Sub(x , reversed = True)
+    def __rmul__(self, x): return self.Mul(x , reversed = False)
+    def __rpow__(self, x): return self.Pow(x , reversed = True)
+    def __rtruediv__(self, x): return self.Div(x , reversed = True)
+        
+    # reduce
+    def Sum(self, dim = None,  keepdims = False): return self.sum(dim , keepdims)
 
-# dot  can be definig as  a conv 
-# sub can be defined as a mul and add
-# div can be defined with pow
-# tanh can be definid as sigmoid
-# softmax  implementation is just  stupid (find  a better way)
-
-class dot(Function):
-    @staticmethod
-    def forward(ctx , x,y):
-        out = x @ y 
-        ctx.save_for_backward(x,y) 
+    # activations 
+    def Sigmoid(self): return self._sig()
+    def Relu(self): return self.relu() 
+    def _sig(self): return 1 / (1 + (-self).exp())    
+    def Tanh(self): return 2.0 * ((2.0 * self)._sig()) - 1.0
+    def Logsoftmax(self, dim ): return self.Softmax(dim).log()   
+        
+    def Softmax(self , dim):
+        exp  = self.exp()
+        s = exp.sum(dim , keepdims = True if dim == 1 else False)
+        out = exp / s 
         return out
-         
-    @staticmethod
-    def backward(ctx, out_grad): # TODO :make a nicer  way  of doing this
-        x,y= ctx.saved_tensors
-        t1 = np.expand_dims(x, 0) if x.ndim < 2 else x # za  Y.grad
-        out_grad_1 = np.expand_dims(out_grad , 0) if out_grad.ndim < 2 else out_grad
-        t2 = np.expand_dims(y  ,-1) if y.ndim < 2 else y
-        out1 = (out_grad_1 @ t2.T).reshape(x.shape) # bad
-        out2 = (t1.T @ out_grad_1).reshape(y.shape) # bad
-        return  out1 , out2
-register("dot",dot)
+    
+def register(name , func): # this  is called n number of times (n  is tyhe number  of fucntins)
+    partial = partialmethod(func.apply , func)
+    setattr(Tensor , name , partial)
 
-class mul(Function):
-    @staticmethod 
-    def forward(ctx,x,y): 
-        ctx.save_for_backward(x,y)
-        return x*y
-    @staticmethod
-    def backward(ctx, out_grad):
-        x,y  = ctx.saved_tensors
-        return y*out_grad , x*out_grad 
-register("mul",mul) 
-
-class add(Function):
-    @staticmethod 
-    def forward(ctx,x,y):
-        ctx.save_for_backward(x,y)
-        return x+y
-    @staticmethod
-    def backward(ctx, out_grad):
-        return out_grad , out_grad
-register("add",add)
-
-class sub(Function):
-    @staticmethod
-    def forward(ctx,x,y):
-        ctx.save_for_backward(x,y)
-        return x-y
-    @staticmethod
-    def backward(ctx , out_grad):
-        return out_grad , -out_grad
-register("sub",sub)
-
-class pow(Function):
-    @staticmethod
-    def forward(ctx , x , y):
-        out = x**y 
-        ctx.save_for_backward(x,y , out)
-        return out
-    @staticmethod
-    def backward(ctx, out_grad):
-        x,y,out= ctx.saved_tensors  # y can not be a tensor will couse  errors
-        return y*(x**(y-1))*out_grad , np.log(x) * out_grad * out 
-register("pow",pow)
-
-class log(Function):
-    @staticmethod
-    def forward(ctx, x):
-        ctx.save_for_backward(x)
-        return np.log(x)
-    @staticmethod
-    def backward(ctx, out_grad):
-        x, = ctx.saved_tensors
-        return 1 / x * out_grad
-register("log",log)
-
-class sum(Function):
-    @staticmethod
-    def forward(ctx , x):
-        ctx.save_for_backward(x)
-        return np.array([np.sum(x)])
-    @staticmethod
-    def backward(ctx , out_grad):
-        x, = ctx.saved_tensors
-        return np.ones_like(x) * out_grad
-register("sum",sum)
- 
-# activations 
-class relu(Function):
-    @staticmethod
-    def forward(ctx , x):
-        ctx.save_for_backward(x)
-        return np.maximum(0 , x)
-    @staticmethod
-    def backward(ctx , out_grad):
-        x, = ctx.saved_tensors
-        return np.greater(x,0) * out_grad
-register("relu",relu)
-
-class tanh(Function):
-    @staticmethod
-    def forward(ctx , x):
-        out =  np.tanh(x)
-        ctx.save_for_backward(out)
-        return out
-    @staticmethod
-    def backward(ctx , out_grad):
-        out, = ctx.saved_tensors
-        return (1 - out**2) * out_grad
-register("tanh",tanh)
-
-class softmax(Function):
-    @staticmethod
-    def  forward(ctx , x):
-        z = x - np.max(x)
-        out = np.exp(z) / np.sum(np.exp(z))
-        ctx.save_for_backward(x , out)
-        return out
-    @staticmethod
-
-    def  backward(ctx , out_grad):
-        x,out = ctx.saved_tensors
-        chain = out_grad if out_grad.ndim < 2 else out_grad.reshape(-1 , 1) 
-        chain = chain if x.ndim < 2 else chain.reshape(x.shape)
-        output = (-np.outer(out , out) + np.diag(out.flatten())) @ chain
-        output = output.reshape(x.shape)
-        return  output
-register("softmax",softmax)
+import projekatgrad.ops 
