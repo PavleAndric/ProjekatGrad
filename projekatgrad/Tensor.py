@@ -84,8 +84,8 @@ class  Tensor:
     def Div(self, x , reversed = False): return self * x ** -1 if not reversed else x * self**-1 # this is  not  ideal
     def Sub(self,x , reversed = False): return self + (-x) if not reversed else x + (-self)
     def Log(self):return self.log()        
-    def Sqrt(self): return self.pow(0.5)
-    def Neg(self):  return self.mul(-1)
+    def Sqrt(self): return self ** 0.5
+    def Neg(self):  return self * -1
     def Matmul(self,x): return  self.dot(x) 
     
     def __add__(self, x): return self.Add(x)
@@ -109,12 +109,15 @@ class  Tensor:
     def Sigmoid(self): return self._sig()
     def Relu(self): return self.relu() 
     def _sig(self): return 1 / (1 + (-self).exp())    
-    def Tanh(self): return 2.0 * ((2.0 * self)._sig()) - 1.0
+    def Tanh(self):
+       e = (2 * self).exp() 
+       return (e- 1) / (e +1)   
+    
     def Logsoftmax(self, dim ): return self.Softmax(dim).log()   
         
     def Softmax(self , dim):
         exp  = self.exp()
-        s = exp.Sum(dim , keepdims = True if dim == 1 else False)  # this is bs
+        s = exp.Sum(dim)  # this is bs
         out = exp / s 
         return out
     

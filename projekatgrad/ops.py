@@ -6,10 +6,8 @@ import  numpy as  np
 # only  fundamental ops
 # grad needs  to be  the  same shame as input
 def unbroad_reshape(x, desired_shape):
-    
-    axis = tuple(i for i ,x in enumerate(desired_shape) if x== 1 and len(x.shape) >= len(desired_shape)) if desired_shape != (1,) else None # None -> sum everting
-    x = x.sum(axis).reshape(desired_shape)
-    return 
+    axis = tuple(i for i ,x in enumerate(desired_shape) if x== 1 and x >= len(desired_shape)) if desired_shape != (1,) else None # None -> sum everting
+    return x.sum(axis).reshape(desired_shape)
 
 class dot(Function):
     @staticmethod
@@ -20,7 +18,7 @@ class dot(Function):
     @staticmethod
     def backward(ctx, out_grad): 
         x,y= ctx.saved_tensors
-        return  unbroad_reshape(out_grad @ y.T , x.shape) , unbroad_reshape(x.T @ out_grad ,y.shape)
+        return  out_grad @ y.T , x.T @ out_grad
 register("dot",dot)
 
 class mul(Function):
@@ -31,7 +29,6 @@ class mul(Function):
     @staticmethod
     def backward(ctx, out_grad):
         x,y  = ctx.saved_tensors
-        
         return unbroad_reshape(y * out_grad , x.shape) , unbroad_reshape(x * out_grad , y.shape)
 register("mul",mul) 
 
@@ -77,7 +74,7 @@ class log(Function):
     @staticmethod
     def backward(ctx, out_grad):
         x, = ctx.saved_tensors
-        return unbroad_reshape(1 / x * out_grad , x.shape)
+        return 1 / x * out_grad
 register("log",log)
 
 class sum(Function):
