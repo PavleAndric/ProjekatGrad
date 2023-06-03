@@ -14,7 +14,7 @@ class  Function:
 
     def apply(self , func , *x):
         ctx = func(self, *x)
-        ret = Tensor(func.forward(ctx , self.data  , *[t.data if isinstance(t, Tensor) else t for t in x])) # returns Tensor but args  are  np.array
+        ret = Tensor(func.forward(ctx , self.data  , *[t.data if isinstance(t, Tensor) else t for t in x]) , requires_grad = False) # returns Tensor but args  are  np.array
         ret._ctx = ctx
         return ret
     
@@ -22,19 +22,19 @@ class  Tensor:
     def __init__(self, data , requires_grad = False):
     
         self.grad ,self._ctx = None , None
-        self.requires_grad  = requires_grad # if any tensor  requres_grad then  do  backpass 
-
+        self.requires_grad  = requires_grad # if any tensor  requres_grad then do backpass 
+        
         if isinstance(data, (int , float)):
-            data = np.array([data] , dtype = np.float32)
-        if isinstance(data, (list , tuple)):
-            data = np.array(data , dtype = np.float32)
-        if isinstance(data, np.ndarray): 
-            data = data.astype(np.float32) 
+            data = np.array([data])
 
+        if isinstance(data, (list , tuple)):
+            data = np.array(data)    
+        if isinstance(data ,Tensor):
+            data = data.data # ugly
         if not isinstance(data ,(np.ndarray , np.generic)):
             raise RuntimeError (f"Can't create a tensor from {data , type(data)}")
         
-        self.data = data  # by the time its here it is a data is np.array with at leats one dim
+        self.data = data.astype(np.float32)
 
     @property
     def dtype(self): return self.data.dtype
@@ -43,30 +43,33 @@ class  Tensor:
 
     def __repr__(self): return f"Tensor {self.data} , {self.dtype}"
 
-    def  toposort(self, visited = set() ,nodes = []):
-        def topo(node):
+    def  toposort(self):
+        def topo(node , visited = set() , nodes = []): # must be in here write  a test  for this    
             if node not in visited:
                 visited.add(node)
                 if node._ctx != None:
                     for x in node._ctx.parents:
-                        topo(x)
-                nodes.append(node)
+                        if x not in visited:
+                            topo(x)
+                    nodes.append(node)
             return nodes 
         return reversed(topo(self))
 
     def backward(self):
         if self._ctx is None: return 
         assert self.shape == (1,) , f"Tensor must have a shape of (1,) instead of {self.shape}"
-        self.grad = np.ones(self.shape, dtype = np.float32) 
 
-        for i in self.toposort():
+        self.grad =  Tensor([1.])
+        for i in (self.toposort()):
             if i._ctx:
-                grads = i._ctx.backward(i._ctx , i.grad) # example: if  _ctx is mul , it  will call i.mul.backward(set by register)
+                grads = i._ctx.backward(i._ctx , i.grad.data) # this  i.grad.data is  ugly
                 if  not isinstance(grads, tuple): grads = [grads]
                 for ts, gr in zip(i._ctx.parents, grads):
                     assert ts.shape == gr.shape ,f"shapes of tensor {ts.shape} and grad {gr.shape} must be the same"
-                    ts.grad = gr if ts.grad is None else (ts.grad + gr)
-            i._ctx = None
+                    g = Tensor(gr)
+                    ts.grad = g if ts.grad is None else (ts.grad + g)
+                    assert isinstance(ts.grad , Tensor)
+            #i._ctx = None
 
     # maybe  not  ideal
     def assure_tensor(self , x, func =  None  , reversed = False):

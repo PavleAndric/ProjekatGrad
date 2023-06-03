@@ -12,18 +12,16 @@ def helper_test(shape, torhc_func , my_func, atol = 0 , rtol = 1e-6):
     input = my_func(*my_tensors)
 
     np.testing.assert_allclose(input.data , desired.detach().numpy() , atol = atol , rtol = rtol)
-    #testing_grads
-    
+    #testing_grad
     def test_backward():
         
         l1 = (input).Mean().backward()
         l2 = torch.mean(desired).backward()
         for x ,y in  zip(my_tensors , torch_tensors):
-            np.testing.assert_allclose(x.grad, y.grad.detach().numpy(), atol = 1e-7 , rtol = 1e-6)
+            np.testing.assert_allclose(x.grad.data, y.grad.detach().numpy(), atol = 1e-7 , rtol = 1e-6)
     
     test_backward()
         
-
 class TestOps(unittest.TestCase):
     # test fundamental math
     def test_add(self):

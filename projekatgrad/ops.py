@@ -1,7 +1,6 @@
-from projekatgrad.Tensor import Tensor, Function, register
+from projekatgrad.Tensor import  Function, register
 import  numpy as  np
-# dot  can be definig as  a conv(
-# only  fundamental ops
+
 def unbroad_reshape(x, desired_shape):
     axis = tuple(i for i ,x in enumerate(desired_shape) if x== 1 and x >= len(desired_shape)) if desired_shape != (1,) else None # None -> sum everting
     return x.sum(axis).reshape(desired_shape)
