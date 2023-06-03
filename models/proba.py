@@ -1,19 +1,23 @@
-from mnist_dataset.make_mnist import fetch_mnist
+import sys
+import os
+import torch
 import numpy as np
-from projekatgrad.Tensor import  Tensor
 
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.dirname(SCRIPT_DIR))
+
+from mnist_dataset.fetch_mnist import fetch_mnist
+from  projekatgrad.Tensor import  Tensor
 
 X_train , Y_train , X_test , Y_test = fetch_mnist()
 X_train = X_train / 255
 X_train = X_train[:50].astype(np.float32)
 
 epochs = 20
-
-def one_hot(input):
+def one_hot_my(input):
     rom = np.zeros(10)
     rom[input] = 1
-    return rom.reshape(1, 10)
-
+    return Tensor(rom.reshape(1, 10))
 
 class MyMnsit:
     
@@ -24,12 +28,6 @@ class MyMnsit:
     def forward(self, x):
         return (x.dot(self.w_1)).Relu().dot(self.w_2).Softmax(1)
     
-
-def one_hot(input):
-    rom = np.zeros(10)
-    rom[input] = 1
-    return Tensor(rom.reshape(1, 10))
-
 model = MyMnsit()
 
 for ep in range(epochs):
@@ -37,7 +35,7 @@ for ep in range(epochs):
     for x , y in  zip(X_train, Y_train):
 
         input = Tensor([x])
-        target = one_hot(y)
+        target = one_hot_my(y)
         out = model.forward(input)
         loss = -(target  * out.Log()).Sum()
         rom_loss += loss.data
@@ -49,7 +47,6 @@ for ep in range(epochs):
     
     print(rom_loss / 20)
 
-import torch
 class torchMnsit:
     
     def __init__(self):
@@ -59,8 +56,6 @@ class torchMnsit:
     def forward(self, x):
         out = (x.matmul(self.w_1)).relu().matmul(self.w_2).softmax(0)
         return out
-
-epochs = 20
 
 def one_hot(input):
     rom = torch.zeros(10)

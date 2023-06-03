@@ -5,18 +5,31 @@ import unittest
 
 def helper_test(shape, torhc_func , my_func, atol = 0 , rtol = 1e-6):
     
-    torhc_tensors = [torch.rand(x) for  x  in shape] # torch_Tenors
-    my_tensors = [Tensor(x.detach().numpy()) for x in torhc_tensors] # my_tensors wtih  same elements
-    desired = torhc_func(*torhc_tensors)
+    torch_tensors = [torch.rand(x ,requires_grad = True) for  x  in shape] # torch_Tenors
+    my_tensors = [Tensor(x.detach().numpy()) for x in torch_tensors] # my_tensors wtih  same elements
+
+    desired = torhc_func(*torch_tensors)
     input = my_func(*my_tensors)
+
     np.testing.assert_allclose(input.data , desired.detach().numpy() , atol = atol , rtol = rtol)
+    #testing_grads
+    
+    def test_backward():
+        
+        l1 = (input).Mean().backward()
+        l2 = torch.mean(desired).backward()
+        for x ,y in  zip(my_tensors , torch_tensors):
+            np.testing.assert_allclose(x.grad, y.grad.detach().numpy(), atol = 1e-7 , rtol = 1e-6)
+    
+    test_backward()
+        
 
 class TestOps(unittest.TestCase):
     # test fundamental math
     def test_add(self):
-        helper_test([(45, 65) ,(45, 65)] ,   lambda x ,y : x + y ,  lambda x ,y : x + y )
-        helper_test([(45, 65)]  , lambda x: x+10  , lambda x: x+10)
-        helper_test([(45, 65)]  , lambda x: 10+x  , lambda x: 10+x)
+        helper_test([(45 ,65) ,(45 ,65)] ,   lambda x ,y : x + y ,  lambda x ,y : x + y )
+        helper_test([(45 ,65)]  , lambda x: x+10  , lambda x: x+10)
+        helper_test([(45 ,65)]  , lambda x: 10+x  , lambda x: 10+x)
     def test_sub(self):
         helper_test([(45, 65) ,(45, 65)] ,  lambda x ,y : x - y  ,  lambda x ,y : x - y )
         helper_test([(45, 65)]  , lambda x: x-10  , lambda x: x-10)
@@ -43,6 +56,11 @@ class TestOps(unittest.TestCase):
         helper_test([(45 , 65)] , lambda x : x.sum(dim = 0)   , lambda x:x.Sum(dim = 0))
         helper_test([(45 , 65)] , lambda x : x.sum(dim = 1), lambda x:x.Sum(dim = 1))
         helper_test([(45 , 65)] , lambda x : x.sum(dim = 1,keepdims = True)  , lambda x:x.Sum(dim = 1 ,keepdims = True))
+    def test_mean(self): #Mean
+        helper_test([(45 , 65)] , lambda x: x.mean() , lambda x: x.Mean())
+        helper_test([(45 , 65)] , lambda x : x.mean(dim = 0)   , lambda x:x.Mean(dim = 0))
+        helper_test([(45 , 65)] , lambda x : x.mean(dim = 1), lambda x:x.Mean(dim = 1))
+        helper_test([(45 , 65)] , lambda x : x.mean(dim = 1,keepdims = True)  , lambda x:x.Mean(dim = 1 ,keepdims = True))
     def test_epx(self):
         helper_test([(45 , 65)] , lambda x: x.exp()  , lambda x: x.Exp())
     # test  unary  functions
@@ -60,11 +78,11 @@ class TestOps(unittest.TestCase):
     def test_sigmoid(self):
         helper_test([(45 , 65)] , lambda x: x.sigmoid() ,lambda x: x.Sigmoid())
     def test_softmax(self):
-        helper_test([(45 , 65)] , lambda x:x.softmax(dim = 1) , lambda x: x.Softmax(dim = 1))
-        helper_test([(45 , 65)] , lambda x:x.softmax(dim = 0) , lambda x: x.Softmax(dim = 0))
+        helper_test([(1, 20)] , lambda x:x.softmax(dim = 1) , lambda x: x.Softmax(dim = 1))
+        helper_test([(20 , 1)] , lambda x:x.softmax(dim = 0) , lambda x: x.Softmax(dim =0))
     def test_logsoftmax(self):
-        helper_test([(45 , 65)] , lambda x:x.log_softmax(dim = 1) , lambda x: x.Logsoftmax(dim = 1))
-        helper_test([(45 , 65)] , lambda x:x.log_softmax(dim = 0) , lambda x: x.Logsoftmax(dim = 0))
+        helper_test([(1, 20)] , lambda x:x.log_softmax(dim = 1) , lambda x: x.Logsoftmax(dim = 1))
+        helper_test([(20 ,1)] , lambda x:x.log_softmax(dim = 0) , lambda x: x.Logsoftmax(dim = 0))
 
 if __name__ == '__main__':
   unittest.main()  

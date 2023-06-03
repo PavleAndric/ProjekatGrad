@@ -1,7 +1,8 @@
 import numpy as np 
 from functools import partialmethod 
+import math
 # make a decent numpy based NN library 
-# then add GPU support 
+# then add GPU support
 
 class  Function:
     def __init__(self , *tensors):
@@ -78,12 +79,12 @@ class  Tensor:
     def Mul(self, x  ,reversed = False):  return self.assure_tensor(x, Tensor.mul ,reversed)     
     def Add(self, x  ,reversed = False): return self.assure_tensor(x, Tensor.add ,reversed)
     def Pow(self, x , reversed = False): return self.assure_tensor(x, Tensor.pow ,reversed) 
-    def Exp(self):  return self.exp() # assumes  self  is a tensor
+    def Exp(self): return self.exp() 
+    def Log(self): return self.log()     
     
     # basic math
-    def Div(self, x , reversed = False): return self * x ** -1 if not reversed else x * self**-1 # this is  not  ideal
-    def Sub(self,x , reversed = False): return self + (-x) if not reversed else x + (-self)
-    def Log(self):return self.log()        
+    def Div(self, x , reversed = False): return self * x ** -1 if not reversed else x * self**-1 # not  ideal
+    def Sub(self,x , reversed = False): return self + (-x) if not reversed else x + (-self)      # not  ideal
     def Sqrt(self): return self ** 0.5
     def Neg(self):  return self * -1
     def Matmul(self,x): return  self.dot(x) 
@@ -104,7 +105,9 @@ class  Tensor:
         
     # reduce
     def Sum(self, dim = None,  keepdims = False): return self.sum(dim , keepdims)
-
+    def Mean(self ,dim = None , keepdims = False): 
+        sm = self.Sum(dim,  keepdims)
+        return  sm / (math.prod(self.shape) / math.prod(sm.shape))
     # activations 
     def Sigmoid(self): return self._sig()
     def Relu(self): return self.relu() 
@@ -117,7 +120,7 @@ class  Tensor:
         
     def Softmax(self , dim):
         exp  = self.exp()
-        s = exp.Sum(dim)  # this is bs
+        s = exp.Sum(dim) 
         out = exp / s 
         return out
     

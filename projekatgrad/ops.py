@@ -1,10 +1,7 @@
 from projekatgrad.Tensor import Tensor, Function, register
 import  numpy as  np
-
-
 # dot  can be definig as  a conv(
 # only  fundamental ops
-# grad needs  to be  the  same shame as input
 def unbroad_reshape(x, desired_shape):
     axis = tuple(i for i ,x in enumerate(desired_shape) if x== 1 and x >= len(desired_shape)) if desired_shape != (1,) else None # None -> sum everting
     return x.sum(axis).reshape(desired_shape)
@@ -39,7 +36,8 @@ class add(Function):
         return x+y
     @staticmethod
     def backward(ctx, out_grad):
-        return out_grad , out_grad
+        x,y  = ctx.saved_tensors
+        return unbroad_reshape(out_grad , x.shape) , unbroad_reshape(out_grad , y.shape)
 register("add",add)
 
 class pow(Function):
@@ -63,7 +61,7 @@ class exp(Function):
     @staticmethod
     def backward(ctx, out_grad):
         out , = ctx.saved_tensors 
-        return unbroad_reshape(out * out_grad , out.shape)
+        return unbroad_reshape(out * out_grad , out.shape) # his  has to brodcast ? 
 register("exp",exp)
 
 class log(Function):
@@ -80,15 +78,16 @@ register("log",log)
 class sum(Function):
     @staticmethod
     def forward(ctx , x, dim = None, keepdims = False):
-        ctx.save_for_backward(x)
-        out = np.array(np.sum(x , axis = dim , keepdims=  keepdims))
+        ctx.save_for_backward(x ,dim)
+        out = np.array(np.sum(x , axis = dim , keepdims = keepdims))
         out  = out.reshape(1,) if out.shape  == () else out # tensor can't of dim 0
         return out
     @staticmethod
     def backward(ctx , out_grad):
-        x, = ctx.saved_tensors
-        out = unbroad_reshape(np.ones_like(x) * out_grad , x.shape)
-        return out  
+        x, dim= ctx.saved_tensors
+        f  = np.ones_like(x)
+        out_grad = np.expand_dims(out_grad , dim if  dim is not None else ()) if len(f.shape) > len(out_grad.shape) else out_grad
+        return f * out_grad  
 register("sum",sum)
  
 # activations 
