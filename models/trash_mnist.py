@@ -8,11 +8,11 @@ sys.path.append(os.path.dirname(SCRIPT_DIR))
 
 from mnist_dataset.fetch_mnist import fetch_mnist
 from  projekatgrad.Tensor import  Tensor
-from projekatgrad.optim import SGD
+from projekatgrad.optim import SGD ,Adam
 
 X_train , Y_train , X_test , Y_test = fetch_mnist()
 X_train = X_train / 255
-rombcina = 10
+rombcina = 25
 X_train = X_train[:rombcina].astype(np.float32)
 
 epochs = 20
@@ -32,14 +32,13 @@ class MyMnsit:
         return (x.dot(self.w_1)).Relu().dot(self.w_2).Softmax(1)
     
 model = MyMnsit()
-optim = SGD([model.w_1  , model.w_2] , 0.01)
+optim = Adam([model.w_1  , model.w_2] , 0.001 , (0.9 ,0.999))
 
 for ep in range(epochs):
     rom_loss = 0
     for x , y in  zip(X_train, Y_train):
 
         input = Tensor([x]) 
-        #print(input.shape)
         target = one_hot_my(y)
 
         out = model.forward(input)
@@ -47,8 +46,8 @@ for ep in range(epochs):
         loss = (target  * out.Log()).Sum() * -1
         rom_loss += loss.data
         optim.zero_grad()
-        loss.backward()
-        #optim.step() 
+        loss.backward() 
+        optim.step()
 
     print(rom_loss / rombcina)
 
@@ -70,7 +69,7 @@ def one_hot(input):
     return rom.reshape(1, 10)
 
 model1 = torchMnsit()
-optim1  = torch.optim.SGD((model1.w_1 , model1.w_2) , lr = 0.01)
+optim1  = torch.optim.Adam((model1.w_1 , model1.w_2) , lr = 0.001 , betas = (0.9 ,0.999))
 
 X_train_lol = torch.tensor(X_train)
 
@@ -87,5 +86,6 @@ for ep in range(epochs):
         optim1.zero_grad()
         loss.backward()
         optim1.step()
-    #print(torch.max(model1.w_1.grad))
     print(rom_loss / rombcina)
+
+print(len(optim.params))

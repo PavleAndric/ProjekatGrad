@@ -69,7 +69,9 @@ class  Tensor:
                     g = Tensor(gr)
                     ts.grad = g if ts.grad is None else (ts.grad + g)
                     assert isinstance(ts.grad , Tensor)
-            #i._ctx = None
+
+    def assign(self , new): #tensors are not mutable
+        self.data=  new.data
 
     # maybe  not  ideal
     def assure_tensor(self , x, func =  None  , reversed = False):
@@ -86,7 +88,8 @@ class  Tensor:
     def Log(self): return self.log()     
     
     # basic math
-    def Div(self, x , reversed = False): return self * x ** -1 if not reversed else x * self**-1 # not  ideal
+    def Div(self, x , reversed = False): 
+        return self * x ** -1.0 if not reversed else x * self**-1.0 # not  ideal
     def Sub(self,x , reversed = False): return self + (-x) if not reversed else x + (-self)      # not  ideal
     def Sqrt(self): return self ** 0.5
     def Neg(self):  return self * -1
